@@ -1,4 +1,5 @@
 ﻿using Mediator.Interfaces;
+using System.Reflection;
 
 namespace Mediator
 {
@@ -51,16 +52,23 @@ namespace Mediator
             }
 
             //Invoke the handler
-
-            var result = handleMethod.Invoke(handler, new object[] { request, cancellationToken });
-            if (result is Task<TResponse> task)
+            try
             {
-                return await task;
+                var result = handleMethod.Invoke(handler, new object[] { request, cancellationToken });
+                if (result is Task<TResponse> task)
+                {
+                    return await task;
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        $"Handler {handler.GetType().Name} returned an invalid result. Expected Task<{responseType}> but got {result?.GetType().Name ?? "null"}");
+                }
             }
-            else
+            catch (TargetInvocationException ex)
             {
-                throw new InvalidOperationException(
-                    $"Handler {handler.GetType().Name} returned an invalid result. Expected Task<{responseType}> but got {result?.GetType().Name ?? "null"}");
+                // Unwrap the original exception thrown by the handler
+                throw ex.InnerException ?? ex;
             }
         }
     }
